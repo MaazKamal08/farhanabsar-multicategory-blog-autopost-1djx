@@ -1,0 +1,388 @@
+{
+  "name": "farhanabsha-multicategory-blog-research-and-post-AI copy",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "weeks",
+              "triggerAtDay": [
+                3
+              ],
+              "triggerAtHour": 23
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        0,
+        -128
+      ],
+      "id": "72057130-26c1-446c-bad2-6d4248622e7d",
+      "name": "Schedule Trigger"
+    },
+    {
+      "parameters": {
+        "jsCode": "const today = new Date();\nconst weekNumber = Math.floor((today.getDate() - 1) / 7) + 1; // Gets week 1-5 of the month\n\nconst schedule = {\n  1: 'Franchising',\n  2: 'Entrepreneurship',\n  3: 'Business Consultancy',\n  4: 'Mentorship',\n  5: 'Success Stories'\n};\n\nconst day = today.toLocaleString('en-US', { weekday: 'long' });\n\n// Only post on Wednesday\nif (day === 'Thursday') {\n  const category = schedule[weekNumber] || schedule[1];\n  return [{ json: { category: category.toLowerCase().replace(/\\s+/g, '-') } }];\n}\n\nreturn [];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        224,
+        -128
+      ],
+      "id": "f942418a-340f-47ba-9610-f3525dbd7a8c",
+      "name": "Code in JavaScript"
+    },
+    {
+      "parameters": {
+        "url": "={{ $json.url }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "User-Agent",
+              "value": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/141.0.0.0 Safari/537.36"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        672,
+        -128
+      ],
+      "id": "c00a35f5-f378-42a8-89d6-f748239e96d3",
+      "name": "HTTP Request"
+    },
+    {
+      "parameters": {
+        "jsCode": "return items.map(item => {\n  const category = item.json.category?.toLowerCase() || \"entrepreneurship\";\n  const sources = {\n    entrepreneurship: { \n      url: \"https://news.google.com/rss/search?q=entrepreneurship+startup&hl=en-US&gl=US&ceid=US:en\", \n      type: \"rss\" \n    },\n    franchising: { \n      url: \"https://news.google.com/rss/search?q=franchising+franchise+business&hl=en-US&gl=US&ceid=US:en\", \n      type: \"rss\" \n    },\n    \"business-consultancy\": { \n      url: \"https://news.google.com/rss/search?q=business+consultancy+strategy&hl=en-US&gl=US&ceid=US:en\", \n      type: \"rss\" \n    },\n    mentorship: { \n      url: \"https://news.google.com/rss/search?q=business+mentorship+leadership&hl=en-US&gl=US&ceid=US:en\", \n      type: \"rss\" \n    },\n    \"success-stories\": { \n      url: \"https://news.google.com/rss/search?q=business+success+stories+entrepreneur&hl=en-US&gl=US&ceid=US:en\", \n      type: \"rss\" \n    }\n  };\n  const source = sources[category] || sources[\"entrepreneurship\"];\n  return {\n    json: {\n      category,\n      url: source.url,\n      type: source.type\n    }\n  };\n});"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        448,
+        -128
+      ],
+      "id": "2f4dd224-5c17-4734-9d70-162ecc596478",
+      "name": "Code in JavaScript1"
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "n8n-nodes-base.xml",
+      "typeVersion": 1,
+      "position": [
+        896,
+        -128
+      ],
+      "id": "5433d720-9b46-4e7b-8c24-17d667b4c8b3",
+      "name": "XML"
+    },
+    {
+      "parameters": {
+        "jsCode": "return items.map(inputItem => {\n\n  // Support both RSS and Atom feeds\n  const rssItems =\n    inputItem.json?.rss?.channel?.item ||\n    inputItem.json?.feed?.entry ||\n    [];\n\n  const category = inputItem.json?.category || \"unknown\";\n  const item = rssItems[0] || {};\n\n  // --- UNIVERSAL TITLE EXTRACTION ---\n  const title =\n    (typeof item.title === \"string\" && item.title) ||\n    (item.title?.[\"_\"]) ||                     // Atom style\n    (item.title?.[\"#text\"]) ||                 // Alternative Atom parse\n    (Array.isArray(item.title) && item.title[0]) ||\n    (typeof item.description === \"string\" && item.description) ||\n    (Array.isArray(item.description) && item.description[0]) ||\n    \"No title\";\n\n  // --- UNIVERSAL LINK EXTRACTION ---\n  function getLink(it) {\n    if (!it) return \"\";\n\n    // RSS style\n    if (typeof it.link === \"string\") return it.link;\n    if (Array.isArray(it.link) && typeof it.link[0] === \"string\") return it.link[0];\n\n    // Atom <link href=\"\">\n    if (typeof it.link === \"object\" && it.link.href) return it.link.href;\n\n    // Fallback: extract from description\n    if (typeof it.description === \"string\") {\n      const match = it.description.match(/href=\"([^\"]+)\"/);\n      if (match) return match[1];\n    }\n    if (Array.isArray(it.description) && typeof it.description[0] === \"string\") {\n      const match = it.description[0].match(/href=\"([^\"]+)\"/);\n      if (match) return match[1];\n    }\n\n    return \"\";\n  }\n\n  // --- UNIVERSAL IMAGE EXTRACTION ---\n  function getImage(it) {\n    if (!it) return null;\n\n    // <media:content>\n    const mc = it[\"media:content\"];\n    if (Array.isArray(mc) && mc[0]?.$?.url) return mc[0].$.url;\n    if (mc?.$?.url) return mc.$.url;\n\n    // <enclosure>\n    const enc = it.enclosure;\n    if (Array.isArray(enc) && enc[0]?.$?.url) return enc[0].$.url;\n    if (enc?.$?.url) return enc.$.url;\n\n    return null;\n  }\n\n  return {\n    json: {\n      title,\n      link: getLink(item),\n      category,\n      imageUrl: getImage(item),\n      imageAlt: title\n    }\n  };\n});\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1120,
+        -128
+      ],
+      "id": "ed1a64ea-97ae-4554-acf1-f0222b9ae27e",
+      "name": "Code in JavaScript2"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://farhanabsar.com/wp-json/wp/v2/media",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpBasicAuth",
+        "sendHeaders": true,
+        "specifyHeaders": "json",
+        "jsonHeaders": "={\n  \"Content-Disposition\": \"attachment; filename=\\\"{{ $json.imageName || 'featured.jpg' }}\\\"\",\n  \"Content-Type\": \"image/jpeg\"\n}\n",
+        "sendBody": true,
+        "contentType": "binaryData",
+        "inputDataFieldName": "data",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1920,
+        -128
+      ],
+      "id": "cbce34c8-f68b-4aac-8952-6ac90d35aba8",
+      "name": "upload banner to wp media",
+      "credentials": {
+        "httpBasicAuth": {
+          "id": "qZGfVeX8B7dKVXTQ",
+          "name": "farhanabsar-wp"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://farhanabsar.com/wp-json/wp/v2/posts",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpBasicAuth",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "title",
+              "value": "={{ $('Message a model1').item.json.message.content.title }}"
+            },
+            {
+              "name": "content",
+              "value": "={{ $('Message a model1').item.json.message.content.content }}"
+            },
+            {
+              "name": "status",
+              "value": "publish"
+            },
+            {
+              "name": "featured_media",
+              "value": "={{ $('upload banner to wp media').item.json.id }}"
+            },
+            {
+              "name": "date_gmt",
+              "value": "={{$now.toISO()}}"
+            },
+            {
+              "name": "categories",
+              "value": "={{ $json.id }}"
+            },
+            {
+              "name": "meta_description",
+              "value": "={{ $('Message a model1').item.json.message.content.meta_description }}"
+            },
+            {
+              "name": "meta_title",
+              "value": "={{ $('Message a model1').item.json.message.content.meta_title }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        2368,
+        -128
+      ],
+      "id": "e39fb7d3-01f1-4e3d-9331-5fe7fc6a03ba",
+      "name": "post blog on wp",
+      "credentials": {
+        "httpBasicAuth": {
+          "id": "qZGfVeX8B7dKVXTQ",
+          "name": "farhanabsar-wp"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "url": "=https://farhanabsar.com/wp-json/wp/v2/categories?search={{ $('Code in JavaScript1').item.json.category }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        2144,
+        -128
+      ],
+      "id": "9ddc5a28-bdc5-4a2f-be19-ef7020ce4792",
+      "name": "get category id"
+    },
+    {
+      "parameters": {
+        "resource": "image",
+        "prompt": "=Create an image for this blog post:\nTitle: {{ $json.message.content.title }}\nCategory: {{ $('Code in JavaScript1').item.json.category }}\nUse alt text: {{ $('Code in JavaScript2').item.json.imageAlt }}\nCreate an image in the same visual style as the following references:\n\nTCreate a highly realistic, professional blog hero image inspired by the attached reference images.\n\nScene should feel natural and candid, not staged — real people, real environments, authentic lighting, and cinematic depth of field.\n\nStyle: photorealistic, DSLR-quality, sharp focus, soft natural lighting, realistic skin tones, detailed textures, shallow depth of field, modern lifestyle photography.\n\nComposition: subject centered or slightly off-center with enough negative space for blog text. Background should be clean, natural, and not distracting.\n\nAdd a small, clean “NJX” logo watermark in the bottom-right corner, subtle and professional (white or light monochrome), blended naturally into the image without overpowering the scene.\n\nImage must look suitable for a premium blog or news website — realistic, trustworthy, and editorial-quality.\n\nAvoid illustrations, cartoons, CGI, or overly stylized looks. The final image should look like a real photograph taken by a professional photographer.",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.openAi",
+      "typeVersion": 1.8,
+      "position": [
+        1696,
+        -128
+      ],
+      "id": "d9f0a18d-6b5f-4d9f-b692-6c3e0723103e",
+      "name": "Generate an image1",
+      "credentials": {
+        "openAiApi": {
+          "id": "UIFJIMBxWZzCWz5P",
+          "name": "OpenAi account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "modelId": {
+          "__rl": true,
+          "value": "=gpt-4.1-mini",
+          "mode": "id"
+        },
+        "messages": {
+          "values": [
+            {
+              "content": "=You are an expert SEO content writer and fact-checker.\n\nTask:\nWrite a 600-word SEO-friendly blog article about this topic:\nTitle: {{$json[\"title\"]}}\nCategory: {{$json[\"category\"]}}\n\nImportant writing rules:\n1) Do NOT start writing immediately.\n2) First, collect accurate and relevant facts about the topic.\n3) Use ONLY facts that you can verify from reliable sources you already have access to.\n4) Do NOT invent facts, numbers, statistics, quotes, or sources.\n5) If a fact cannot be verified, do NOT include it.\n\nSEO requirements:\n- Use clear H2 and H3 headings (must be keyword-friendly).\n- Keep the article engaging, easy to read, and structured.\n- Include the primary keyword naturally in:\n  • the introduction  \n  • at least one H2 heading  \n  • the conclusion  \n- Include 2–4 secondary keywords naturally throughout.\n- Use short paragraphs, bullet points where helpful, and a logical flow.\n- Add a strong conclusion with a clear summary or takeaway.\n\nContent structure (required):\n- Introduction (hook + topic overview)\n- H2 sections with H3 sub-sections where needed\n- A conclusion section (H2)\n\nMeta SEO output:\n- meta_title must be max 60 characters and include the main keyword.\n- meta_description must be max 160 characters and include the main keyword + benefit.\n\nContext:\nToday’s date is: {{ new Date().toLocaleDateString('en-US') }}\nIf the topic involves time-sensitive info (trends, pricing, updates, “latest”), make sure details align with today’s date.\n\nOutput format rules:\nReturn ONLY valid JSON with exactly these keys:\n{\n  \"title\": \"<The blog post title>\",\n  \"content\": \"<The full blog content with proper H2/H3 headings in HTML format>\",\n  \"meta_title\": \"<SEO meta title, max 60 characters>\",\n  \"meta_description\": \"<SEO meta description, max 160 characters>\"\n}\n\nStrict output rule:\n- Do NOT include anything outside the JSON.\n- Ensure the JSON is valid (double quotes, no trailing commas)."
+            }
+          ]
+        },
+        "jsonOutput": true,
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.openAi",
+      "typeVersion": 1.8,
+      "position": [
+        1344,
+        -32
+      ],
+      "id": "dea9f248-a7f0-491a-8035-51903d3ab7f3",
+      "name": "Message a model1",
+      "credentials": {
+        "openAiApi": {
+          "id": "UIFJIMBxWZzCWz5P",
+          "name": "OpenAi account"
+        }
+      }
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Schedule Trigger": {
+      "main": [
+        [
+          {
+            "node": "Code in JavaScript",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code in JavaScript": {
+      "main": [
+        [
+          {
+            "node": "Code in JavaScript1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP Request": {
+      "main": [
+        [
+          {
+            "node": "XML",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code in JavaScript1": {
+      "main": [
+        [
+          {
+            "node": "HTTP Request",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "XML": {
+      "main": [
+        [
+          {
+            "node": "Code in JavaScript2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code in JavaScript2": {
+      "main": [
+        [
+          {
+            "node": "Message a model1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "upload banner to wp media": {
+      "main": [
+        [
+          {
+            "node": "get category id",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "get category id": {
+      "main": [
+        [
+          {
+            "node": "post blog on wp",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "post blog on wp": {
+      "main": [
+        []
+      ]
+    },
+    "Generate an image1": {
+      "main": [
+        [
+          {
+            "node": "upload banner to wp media",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Message a model1": {
+      "main": [
+        [
+          {
+            "node": "Generate an image1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "f80fd349-c879-4abb-afaf-291065e3010a",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "d5c85d4e145e25a4ce6207091858937964ff12aee744f6a7a687604581b4b8a6"
+  },
+  "id": "A1xdiMYd5kXacTv7",
+  "tags": []
+}
