@@ -1,5 +1,5 @@
 {
-  "name": "farhanabsha-multicategory-blog-research-and-post-AI copy",
+  "name": "blog-research-and-post-AI",
   "nodes": [
     {
       "parameters": {
@@ -102,7 +102,7 @@
     {
       "parameters": {
         "method": "POST",
-        "url": "=https://farhanabsar.com/wp-json/wp/v2/media",
+        "url": "=",
         "authentication": "genericCredentialType",
         "genericAuthType": "httpBasicAuth",
         "sendHeaders": true,
@@ -124,14 +124,14 @@
       "credentials": {
         "httpBasicAuth": {
           "id": "qZGfVeX8B7dKVXTQ",
-          "name": "farhanabsar-wp"
+          "name": ""
         }
       }
     },
     {
       "parameters": {
         "method": "POST",
-        "url": "=https://farhanabsar.com/wp-json/wp/v2/posts",
+        "url": "=",
         "authentication": "genericCredentialType",
         "genericAuthType": "httpBasicAuth",
         "sendBody": true,
@@ -184,13 +184,13 @@
       "credentials": {
         "httpBasicAuth": {
           "id": "qZGfVeX8B7dKVXTQ",
-          "name": "farhanabsar-wp"
+          "name": ""
         }
       }
     },
     {
       "parameters": {
-        "url": "=https://farhanabsar.com/wp-json/wp/v2/categories?search={{ $('Code in JavaScript1').item.json.category }}",
+        "url": "=https://{url}.com/wp-json/wp/v2/categories?search={{ $('Code in JavaScript1').item.json.category }}",
         "options": {}
       },
       "type": "n8n-nodes-base.httpRequest",
